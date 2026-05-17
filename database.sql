@@ -40,6 +40,23 @@ CREATE TABLE IF NOT EXISTS queues (
     FOREIGN KEY (user_id)    REFERENCES users(user_id)       ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS queue_switch_requests (
+    request_id     INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    from_queue_id  INT UNSIGNED NOT NULL,
+    to_queue_id    INT UNSIGNED NOT NULL,
+    from_user_id   INT UNSIGNED NOT NULL,
+    to_user_id     INT UNSIGNED NOT NULL,
+    status         ENUM('pending','accepted','rejected','cancelled','expired') NOT NULL DEFAULT 'pending',
+    created_at     TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    responded_at   TIMESTAMP    NULL,
+    FOREIGN KEY (from_queue_id) REFERENCES queues(queue_id) ON DELETE CASCADE,
+    FOREIGN KEY (to_queue_id)   REFERENCES queues(queue_id) ON DELETE CASCADE,
+    FOREIGN KEY (from_user_id)  REFERENCES users(user_id)   ON DELETE CASCADE,
+    FOREIGN KEY (to_user_id)    REFERENCES users(user_id)   ON DELETE CASCADE,
+    INDEX idx_to_pending   (to_user_id, status),
+    INDEX idx_from_pending (from_user_id, status)
+);
+
 CREATE TABLE IF NOT EXISTS staff (
     staff_id            INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     user_id             INT UNSIGNED NOT NULL,
