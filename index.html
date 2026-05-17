@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OnLine — Queue Management</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- LOGIN -->
+    <div id="login-view" class="login-page">
+        <div class="login-card">
+            <h1>OnLine</h1>
+            <p class="subtitle">UPV Smart Queue Management</p>
+            <div class="form-group">
+                <label><span id="auth-user-label">Username</span></label>
+                <input type="text" id="login-user" placeholder="e.g. admin_reyes">
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" id="login-pass" placeholder="Password">
+            </div>
+            <button class="btn btn-primary btn-block" id="login-btn">Sign In</button>
+            <button class="btn btn-block" id="register-btn" style="margin-top:0.5rem;display:none">Create Account</button>
+            <p id="login-error" class="text-dim text-sm mt-1" style="color:var(--danger)"></p>
+            <p class="text-sm text-dim mt-1" style="text-align:center">
+                <a href="#" id="toggle-mode" style="color:var(--primary)">Don't have an account? Sign up</a>
+            </p>
+        </div>
+    </div>
+
+    <!-- APP SHELL (hidden until login) -->
+    <div id="app-view" class="app-shell hidden">
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <h1>OnLine</h1>
+                <small>Queue System</small>
+            </div>
+            <nav id="sidebar-nav">
+                <!-- populated by JS based on role -->
+            </nav>
+            <div class="sidebar-footer">
+                <div class="user-badge">
+                    <span id="user-display"></span>
+                    <span class="role-tag" id="role-display"></span>
+                </div>
+                <button id="inbox-btn" onclick="openSwitchInbox()">
+                    <span>🔔 Switch Requests</span>
+                    <span id="inbox-badge" class="role-tag hidden" style="background:var(--danger);color:#fff">0</span>
+                </button>
+                <button id="logout-btn"><span>Sign out</span></button>
+            </div>
+        </aside>
+        <main class="main-area" id="main-content"></main>
+    </div>
+
+    <script src="js/app.js"></script>
+    <script src="js/pages.js"></script>
+    <script>
+        /* ── BOOT ── */
+        (async () => {
+            try {
+                const res = await API.session();
+                if (res.user) loginSuccess(res.user);
+            } catch {}
+        })();
+
+        /* ── AUTH MODE TOGGLE ── */
+        let authMode = 'login'; // 'login' | 'register'
+        document.getElementById('toggle-mode').addEventListener('click', e => {
+            e.preventDefault();
+            authMode = (authMode === 'login') ? 'register' : 'login';
+            const isReg = authMode === 'register';
+            document.getElementById('login-btn').style.display     = isReg ? 'none' : '';
+            document.getElementById('register-btn').style.display  = isReg ? '' : 'none';
+            document.getElementById('toggle-mode').textContent     = isReg ? 'Already have an account? Sign in' : "Don't have an account? Sign up";
+            document.querySelector('.login-card h1').nextElementSibling.textContent = isReg
+                ? 'Create a customer account'
+                : 'UPV Smart Queue Management';
+            document.getElementById('login-error').textContent = '';
+        });
+
+        /* ── LOGIN HANDLER ── */
+        document.getElementById('login-btn').addEventListener('click', async () => {
+            const u = document.getElementById('login-user').value.trim();
+            const p = document.getElementById('login-pass').value;
+            document.getElementById('login-error').textContent = '';
+            try {
+                const res = await API.login(u, p);
+                loginSuccess(res.user);
+            } catch (err) {
+                document.getElementById('login-error').textContent = err.message;
+            }
+        });
+
+        /* ── REGISTER HANDLER ── */
+        document.getElementById('register-btn').addEventListener('click', async () => {
+            const u = document.getElementById('login-user').value.trim();
+            const p = document.getElementById('login-pass').value;
+            document.getElementById('login-error').textContent = '';
+            try {
+                const res = await API.register(u, p);
+                loginSuccess(res.user);
+            } catch (err) {
+                document.getElementById('login-error').textContent = err.message;
+            }
+        });
+
+        document.getElementById('login-pass').addEventListener('keydown', e => {
+            if (e.key === 'Enter') {
+                if (authMode === 'register') document.getElementById('register-btn').click();
+                else document.getElementById('login-btn').click();
+            }
+        });
+
+        /* ── LOGOUT ── */
+        document.getElementById('logout-btn').addEventListener('click', async () => {
+            await API.logout();
+            stopSwitchPolling();
+            currentUser = null;
+            document.getElementById('app-view').classList.add('hidden');
+            document.getElementById('login-view').style.display = '';
+        });
+
+        /* ── POST-LOGIN SETUP ── */
+        function loginSuccess(user) {
+            currentUser = user;
+            document.getElementById('login-view').style.display = 'none';
+            document.getElementById('app-view').classList.remove('hidden');
+            document.getElementById('user-display').textContent = user.username;
+            document.getElementById('role-display').textContent = user.role;
+
+            // Build sidebar nav based on role
+            const nav = document.getElementById('sidebar-nav');
+            let links = '';
+
+            // Everyone gets dashboard
+            links += navLink('dashboard', '🏠', 'Dashboard');
+
+            if (['staff', 'admin'].includes(user.role)) {
+                links += navLink('board',    '📋', 'Queue Board');
+                links += navLink('queues',   '📑', 'Queue Records');
+                links += navLink('services', '🏢', 'Services');
+                links += navLink('staff',    '👤', 'Staff');
+            } else {
+                // Customers see queue records (their own view)
+                links += navLink('queues',   '📑', 'My Queues');
+            }
+
+            if (user.role === 'admin') {
+                links += navLink('users', '👥', 'Users');
+            }
+
+            nav.innerHTML = links;
+
+            // Wire click handlers
+            nav.querySelectorAll('a').forEach(a => {
+                a.addEventListener('click', e => {
+                    e.preventDefault();
+                    navigate(a.dataset.page);
+                });
+            });
+
+            startSwitchPolling();
+            navigate('dashboard');
+        }
+
+        function navLink(page, icon, label) {
+            return `<a href="#" data-page="${page}"><span class="icon">${icon}</span><span>${label}</span></a>`;
+        }
+    </script>
+</body>
+</html>
