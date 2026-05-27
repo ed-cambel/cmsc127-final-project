@@ -242,9 +242,14 @@ async function loadQueueTable() {
 
     try {
         const data = await API.getQueues(params);
-        const qs = data.queues;
         const isAdmin = currentUser && currentUser.role === 'admin';
         const isStaff = currentUser && ['admin','staff'].includes(currentUser.role);
+
+        // Customers only see their own queue entries in the records table.
+        let qs = data.queues;
+        if (!isStaff && currentUser) {
+            qs = qs.filter(q => q.user_id == currentUser.user_id);
+        }
 
         let html = `<table>
             <thead><tr>
@@ -255,17 +260,12 @@ async function loadQueueTable() {
         for (const q of qs) {
             const waitingQ = qs.filter(x => x.service_id === q.service_id && x.queue_status === 'waiting' && x.queue_id !== q.queue_id);
             const isOwnRow = currentUser && q.user_id == currentUser.user_id;
-            // Staff/admin: button on any waiting row opens the two-picker. Customer: button on OTHER users' rows requests a switch with them.
-            const myWaiting = (currentUser && !isStaff)
-                ? qs.find(x => x.service_id === q.service_id && x.queue_status === 'waiting' && x.user_id == currentUser.user_id)
-                : null;
+            // Staff/admin: button on any waiting row opens the two-picker.
+            // Customer: button on their OWN waiting row opens a picker of other waiting customers.
             const showSwitch = q.queue_status === 'waiting' && (
                 (isStaff && waitingQ.length > 0) ||
-                (!isStaff && !isOwnRow && myWaiting)
+                (!isStaff && isOwnRow)
             );
-            const switchOnClick = isStaff
-                ? `openSwitch(${q.queue_id}, ${q.service_id})`
-                : `requestSwitchWith(${myWaiting ? myWaiting.queue_id : 0}, ${q.queue_id}, '${esc(q.username)}', ${q.queue_number})`;
             const switchLabel = isStaff ? 'Switch' : 'Request Switch';
 
             html += `<tr>
@@ -276,7 +276,7 @@ async function loadQueueTable() {
                 <td>${q.queue_date}</td>
                 <td><span class="badge badge-${q.queue_status}">${q.queue_status}</span></td>
                 <td class="gap-row">
-                    ${showSwitch ? `<button class="btn btn-sm" onclick="${switchOnClick}">${switchLabel}</button>` : ''}
+                    ${showSwitch ? `<button class="btn btn-sm" onclick="openSwitch(${q.queue_id}, ${q.service_id})">${switchLabel}</button>` : ''}
                     ${q.queue_status === 'skipped' && isStaff
                         ? `<button class="btn btn-sm btn-primary" onclick="readdEntry(${q.queue_id})">Re-add</button>` : ''}
                     ${isAdmin
@@ -324,19 +324,6 @@ async function openSwitch(queueId, serviceId) {
             } catch (err) { toast(err.message, 'error'); }
         });
     } catch (err) { toast(err.message, 'error'); }
-}
-
-function requestSwitchWith(myQueueId, targetQueueId, targetUsername, targetQueueNumber) {
-    if (!myQueueId) { toast('You need a waiting entry in this service first', 'error'); return; }
-    openModal('Request Switch', `
-        <p>Send a switch request to <strong>${esc(targetUsername)}</strong> (currently #${targetQueueNumber})?</p>
-        <p class="text-sm text-dim mt-1">They must accept before your positions swap.</p>
-    `, async () => {
-        try {
-            await API.requestSwitch(myQueueId, targetQueueId);
-            toast('Switch request sent — waiting for response.');
-        } catch (err) { toast(err.message, 'error'); }
-    });
 }
 
 /* ══════════════════════════════════════════════
