@@ -51,7 +51,7 @@ async function renderDashboard(el) {
 
             html += `<div class="card queue-card">
                 <div class="service-label">${esc(svc.building_name)}</div>
-                <div class="card-title">${esc(svc.service_name)}</div>
+                <h3 class="card-title">${esc(svc.service_name)}</h3>
                 <div class="now-serving-label">Now Serving</div>
                 <div class="now-serving">${serving ? '#' + serving.queue_number : '—'}</div>
                 <div class="mt-1 text-sm text-dim">${waiting.length} waiting</div>
@@ -120,7 +120,7 @@ async function renderBoard(el) {
 
             html += `<div class="card queue-card">
                 <div class="service-label">${esc(svc.building_name)}</div>
-                <div class="card-title">${esc(svc.service_name)}</div>
+                <h3 class="card-title">${esc(svc.service_name)}</h3>
                 <div class="now-serving-label">Now Serving</div>
                 <div class="now-serving">${serving ? `#${serving.queue_number} <span class="text-sm" style="font-family:var(--font);color:var(--text-dim)">(${esc(serving.username)})</span>` : '—'}</div>
                 <div class="mt-1 gap-row">
@@ -205,18 +205,18 @@ async function renderQueues(el) {
     // Build filters
     document.getElementById('queue-filters').innerHTML = `
         <div class="form-group">
-            <label>Date</label>
+            <label for="flt-date">Date</label>
             <input type="date" id="flt-date" value="${today()}">
         </div>
         <div class="form-group">
-            <label>Service</label>
+            <label for="flt-service">Service</label>
             <select id="flt-service">
                 <option value="">All</option>
                 ${services.map(s => `<option value="${s.service_id}">${esc(s.service_name)}</option>`).join('')}
             </select>
         </div>
         <div class="form-group">
-            <label>Status</label>
+            <label for="flt-status">Status</label>
             <select id="flt-status">
                 <option value="">All</option>
                 <option value="waiting">Waiting</option>
@@ -306,7 +306,7 @@ async function openSwitch(queueId, serviceId) {
 
         openModal(isStaff ? 'Switch Positions' : 'Request Switch', `
             <div class="form-group">
-                <label>Switch with</label>
+                <label for="switch-target">Switch with</label>
                 <select id="switch-target">${opts}</select>
             </div>
             ${helpText}
@@ -412,12 +412,16 @@ async function cancelSwitchReq(requestId) {
 
 function updateInboxBadge(count) {
     const badge = document.getElementById('inbox-badge');
+    const btn   = document.getElementById('inbox-btn');
     if (!badge) return;
     if (count > 0) {
-        badge.textContent = String(count);
+        badge.textContent = count > 99 ? '99+' : String(count);
         badge.classList.remove('hidden');
+        badge.setAttribute('aria-label', `${count} pending switch ${count === 1 ? 'request' : 'requests'}`);
+        if (btn) btn.setAttribute('aria-label', `Switch requests (${count} pending)`);
     } else {
         badge.classList.add('hidden');
+        if (btn) btn.setAttribute('aria-label', 'Switch requests');
     }
 }
 
@@ -503,9 +507,9 @@ async function openServiceForm(id, name, desc, locId) {
     ).join('');
 
     openModal(id ? 'Edit Service' : 'Add Service', `
-        <div class="form-group"><label>Name</label><input id="svc-name" value="${esc(name || '')}"></div>
-        <div class="form-group"><label>Description</label><textarea id="svc-desc">${esc(desc || '')}</textarea></div>
-        <div class="form-group"><label>Location</label><select id="svc-loc">${locOpts}</select></div>
+        <div class="form-group"><label for="svc-name">Name</label><input id="svc-name" value="${esc(name || '')}"></div>
+        <div class="form-group"><label for="svc-desc">Description</label><textarea id="svc-desc">${esc(desc || '')}</textarea></div>
+        <div class="form-group"><label for="svc-loc">Location</label><select id="svc-loc">${locOpts}</select></div>
     `, async (overlay) => {
         const payload = {
             service_name: overlay.querySelector('#svc-name').value,
@@ -573,9 +577,9 @@ async function openStaffForm(staffId, userId, serviceId, role) {
     ).join('');
 
     openModal(staffId ? 'Edit Staff' : 'Assign Staff', `
-        <div class="form-group"><label>User</label><select id="st-user">${userOpts}</select></div>
-        <div class="form-group"><label>Service</label><select id="st-svc">${svcOpts}</select></div>
-        <div class="form-group"><label>Role</label><input id="st-role" value="${esc(role || '')}"></div>
+        <div class="form-group"><label for="st-user">User</label><select id="st-user">${userOpts}</select></div>
+        <div class="form-group"><label for="st-svc">Service</label><select id="st-svc">${svcOpts}</select></div>
+        <div class="form-group"><label for="st-role">Role</label><input id="st-role" value="${esc(role || '')}"></div>
     `, async (overlay) => {
         const payload = {
             user_id: parseInt(overlay.querySelector('#st-user').value),
@@ -634,9 +638,9 @@ async function renderUsers(el) {
 
 function openUserForm(id, username, role) {
     openModal(id ? 'Edit User' : 'Add User', `
-        <div class="form-group"><label>Username</label><input id="u-name" value="${esc(username || '')}"></div>
-        <div class="form-group"><label>Password ${id ? '(leave blank to keep)' : ''}</label><input type="password" id="u-pass"></div>
-        <div class="form-group"><label>Role</label>
+        <div class="form-group"><label for="u-name">Username</label><input id="u-name" value="${esc(username || '')}" autocomplete="username"></div>
+        <div class="form-group"><label for="u-pass">Password ${id ? '(leave blank to keep)' : ''}</label><input type="password" id="u-pass" autocomplete="new-password"></div>
+        <div class="form-group"><label for="u-role">Role</label>
             <select id="u-role">
                 <option value="customer" ${role === 'customer' ? 'selected' : ''}>Customer</option>
                 <option value="staff" ${role === 'staff' ? 'selected' : ''}>Staff</option>
