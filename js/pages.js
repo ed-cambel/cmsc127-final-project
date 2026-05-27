@@ -51,7 +51,7 @@ async function renderDashboard(el) {
 
             html += `<div class="card queue-card">
                 <div class="service-label">${esc(svc.building_name)}</div>
-                <div class="card-title">${esc(svc.service_name)}</div>
+                <h3 class="card-title">${esc(svc.service_name)}</h3>
                 <div class="now-serving-label">Now Serving</div>
                 <div class="now-serving">${serving ? '#' + serving.queue_number : '—'}</div>
                 <div class="mt-1 text-sm text-dim">${waiting.length} waiting</div>
@@ -120,7 +120,7 @@ async function renderBoard(el) {
 
             html += `<div class="card queue-card">
                 <div class="service-label">${esc(svc.building_name)}</div>
-                <div class="card-title">${esc(svc.service_name)}</div>
+                <h3 class="card-title">${esc(svc.service_name)}</h3>
                 <div class="now-serving-label">Now Serving</div>
                 <div class="now-serving">${serving ? `#${serving.queue_number} <span class="text-sm" style="font-family:var(--font);color:var(--text-dim)">(${esc(serving.username)})</span>` : '—'}</div>
                 <div class="mt-1 gap-row">
@@ -205,18 +205,18 @@ async function renderQueues(el) {
     // Build filters
     document.getElementById('queue-filters').innerHTML = `
         <div class="form-group">
-            <label>Date</label>
+            <label for="flt-date">Date</label>
             <input type="date" id="flt-date" value="${today()}">
         </div>
         <div class="form-group">
-            <label>Service</label>
+            <label for="flt-service">Service</label>
             <select id="flt-service">
                 <option value="">All</option>
                 ${services.map(s => `<option value="${s.service_id}">${esc(s.service_name)}</option>`).join('')}
             </select>
         </div>
         <div class="form-group">
-            <label>Status</label>
+            <label for="flt-status">Status</label>
             <select id="flt-status">
                 <option value="">All</option>
                 <option value="waiting">Waiting</option>
@@ -242,9 +242,14 @@ async function loadQueueTable() {
 
     try {
         const data = await API.getQueues(params);
-        const qs = data.queues;
         const isAdmin = currentUser && currentUser.role === 'admin';
         const isStaff = currentUser && ['admin','staff'].includes(currentUser.role);
+
+        // Customers only see their own queue entries in the records table.
+        let qs = data.queues;
+        if (!isStaff && currentUser) {
+            qs = qs.filter(q => q.user_id == currentUser.user_id);
+        }
 
         let html = `<table>
             <thead><tr>
@@ -255,17 +260,12 @@ async function loadQueueTable() {
         for (const q of qs) {
             const waitingQ = qs.filter(x => x.service_id === q.service_id && x.queue_status === 'waiting' && x.queue_id !== q.queue_id);
             const isOwnRow = currentUser && q.user_id == currentUser.user_id;
-            // Staff/admin: button on any waiting row opens the two-picker. Customer: button on OTHER users' rows requests a switch with them.
-            const myWaiting = (currentUser && !isStaff)
-                ? qs.find(x => x.service_id === q.service_id && x.queue_status === 'waiting' && x.user_id == currentUser.user_id)
-                : null;
+            // Staff/admin: button on any waiting row opens the two-picker.
+            // Customer: button on their OWN waiting row opens a picker of other waiting customers.
             const showSwitch = q.queue_status === 'waiting' && (
                 (isStaff && waitingQ.length > 0) ||
-                (!isStaff && !isOwnRow && myWaiting)
+                (!isStaff && isOwnRow)
             );
-            const switchOnClick = isStaff
-                ? `openSwitch(${q.queue_id}, ${q.service_id})`
-                : `requestSwitchWith(${myWaiting ? myWaiting.queue_id : 0}, ${q.queue_id}, '${esc(q.username)}', ${q.queue_number})`;
             const switchLabel = isStaff ? 'Switch' : 'Request Switch';
 
             html += `<tr>
@@ -276,7 +276,7 @@ async function loadQueueTable() {
                 <td>${q.queue_date}</td>
                 <td><span class="badge badge-${q.queue_status}">${q.queue_status}</span></td>
                 <td class="gap-row">
-                    ${showSwitch ? `<button class="btn btn-sm" onclick="${switchOnClick}">${switchLabel}</button>` : ''}
+                    ${showSwitch ? `<button class="btn btn-sm" onclick="openSwitch(${q.queue_id}, ${q.service_id})">${switchLabel}</button>` : ''}
                     ${q.queue_status === 'skipped' && isStaff
                         ? `<button class="btn btn-sm btn-primary" onclick="readdEntry(${q.queue_id})">Re-add</button>` : ''}
                     ${isAdmin
@@ -306,7 +306,7 @@ async function openSwitch(queueId, serviceId) {
 
         openModal(isStaff ? 'Switch Positions' : 'Request Switch', `
             <div class="form-group">
-                <label>Switch with</label>
+                <label for="switch-target">Switch with</label>
                 <select id="switch-target">${opts}</select>
             </div>
             ${helpText}
@@ -324,19 +324,6 @@ async function openSwitch(queueId, serviceId) {
             } catch (err) { toast(err.message, 'error'); }
         });
     } catch (err) { toast(err.message, 'error'); }
-}
-
-function requestSwitchWith(myQueueId, targetQueueId, targetUsername, targetQueueNumber) {
-    if (!myQueueId) { toast('You need a waiting entry in this service first', 'error'); return; }
-    openModal('Request Switch', `
-        <p>Send a switch request to <strong>${esc(targetUsername)}</strong> (currently #${targetQueueNumber})?</p>
-        <p class="text-sm text-dim mt-1">They must accept before your positions swap.</p>
-    `, async () => {
-        try {
-            await API.requestSwitch(myQueueId, targetQueueId);
-            toast('Switch request sent — waiting for response.');
-        } catch (err) { toast(err.message, 'error'); }
-    });
 }
 
 /* ══════════════════════════════════════════════
@@ -412,12 +399,16 @@ async function cancelSwitchReq(requestId) {
 
 function updateInboxBadge(count) {
     const badge = document.getElementById('inbox-badge');
+    const btn   = document.getElementById('inbox-btn');
     if (!badge) return;
     if (count > 0) {
-        badge.textContent = String(count);
+        badge.textContent = count > 99 ? '99+' : String(count);
         badge.classList.remove('hidden');
+        badge.setAttribute('aria-label', `${count} pending switch ${count === 1 ? 'request' : 'requests'}`);
+        if (btn) btn.setAttribute('aria-label', `Switch requests (${count} pending)`);
     } else {
         badge.classList.add('hidden');
+        if (btn) btn.setAttribute('aria-label', 'Switch requests');
     }
 }
 
@@ -503,9 +494,9 @@ async function openServiceForm(id, name, desc, locId) {
     ).join('');
 
     openModal(id ? 'Edit Service' : 'Add Service', `
-        <div class="form-group"><label>Name</label><input id="svc-name" value="${esc(name || '')}"></div>
-        <div class="form-group"><label>Description</label><textarea id="svc-desc">${esc(desc || '')}</textarea></div>
-        <div class="form-group"><label>Location</label><select id="svc-loc">${locOpts}</select></div>
+        <div class="form-group"><label for="svc-name">Name</label><input id="svc-name" value="${esc(name || '')}"></div>
+        <div class="form-group"><label for="svc-desc">Description</label><textarea id="svc-desc">${esc(desc || '')}</textarea></div>
+        <div class="form-group"><label for="svc-loc">Location</label><select id="svc-loc">${locOpts}</select></div>
     `, async (overlay) => {
         const payload = {
             service_name: overlay.querySelector('#svc-name').value,
@@ -573,9 +564,9 @@ async function openStaffForm(staffId, userId, serviceId, role) {
     ).join('');
 
     openModal(staffId ? 'Edit Staff' : 'Assign Staff', `
-        <div class="form-group"><label>User</label><select id="st-user">${userOpts}</select></div>
-        <div class="form-group"><label>Service</label><select id="st-svc">${svcOpts}</select></div>
-        <div class="form-group"><label>Role</label><input id="st-role" value="${esc(role || '')}"></div>
+        <div class="form-group"><label for="st-user">User</label><select id="st-user">${userOpts}</select></div>
+        <div class="form-group"><label for="st-svc">Service</label><select id="st-svc">${svcOpts}</select></div>
+        <div class="form-group"><label for="st-role">Role</label><input id="st-role" value="${esc(role || '')}"></div>
     `, async (overlay) => {
         const payload = {
             user_id: parseInt(overlay.querySelector('#st-user').value),
@@ -634,9 +625,9 @@ async function renderUsers(el) {
 
 function openUserForm(id, username, role) {
     openModal(id ? 'Edit User' : 'Add User', `
-        <div class="form-group"><label>Username</label><input id="u-name" value="${esc(username || '')}"></div>
-        <div class="form-group"><label>Password ${id ? '(leave blank to keep)' : ''}</label><input type="password" id="u-pass"></div>
-        <div class="form-group"><label>Role</label>
+        <div class="form-group"><label for="u-name">Username</label><input id="u-name" value="${esc(username || '')}" autocomplete="username"></div>
+        <div class="form-group"><label for="u-pass">Password ${id ? '(leave blank to keep)' : ''}</label><input type="password" id="u-pass" autocomplete="new-password"></div>
+        <div class="form-group"><label for="u-role">Role</label>
             <select id="u-role">
                 <option value="customer" ${role === 'customer' ? 'selected' : ''}>Customer</option>
                 <option value="staff" ${role === 'staff' ? 'selected' : ''}>Staff</option>

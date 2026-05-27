@@ -69,36 +69,104 @@ function toast(msg, type = 'success') {
     const c = document.getElementById('toast-container');
     const el = document.createElement('div');
     el.className = `toast toast-${type}`;
+    el.setAttribute('role', type === 'error' ? 'alert' : 'status');
     el.textContent = msg;
+    el.addEventListener('click', () => el.remove());
     c.appendChild(el);
-    setTimeout(() => el.remove(), 3500);
+    setTimeout(() => el.remove(), 4000);
 }
 
-/* ── Modal helper ── */
+/* ── Button loading helper ── */
+function setLoading(btn, isLoading) {
+    if (!btn) return;
+    if (isLoading) {
+        btn.dataset.loading = 'true';
+        btn.dataset.originalLabel = btn.textContent;
+        btn.setAttribute('aria-busy', 'true');
+        btn.disabled = true;
+    } else {
+        btn.removeAttribute('data-loading');
+        btn.removeAttribute('aria-busy');
+        btn.disabled = false;
+        if (btn.dataset.originalLabel) {
+            btn.textContent = btn.dataset.originalLabel;
+            delete btn.dataset.originalLabel;
+        }
+    }
+}
+
+/* ── Modal helper (focus trap, Escape, accessibility) ── */
+let _lastFocusedBeforeModal = null;
 function openModal(title, bodyHTML, onConfirm) {
     const existing = document.querySelector('.modal-overlay');
     if (existing) existing.remove();
 
+    _lastFocusedBeforeModal = document.activeElement;
+
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-labelledby', 'modal-title');
     overlay.innerHTML = `
         <div class="modal">
-            <h3>${title}</h3>
+            <h3 id="modal-title">${title}</h3>
             <div class="modal-body">${bodyHTML}</div>
             <div class="modal-actions">
-                <button class="btn" id="modal-cancel">Cancel</button>
-                ${onConfirm ? '<button class="btn btn-primary" id="modal-confirm">Confirm</button>' : ''}
+                <button class="btn" id="modal-cancel" type="button">Cancel</button>
+                ${onConfirm ? '<button class="btn btn-primary" id="modal-confirm" type="button">Confirm</button>' : ''}
             </div>
         </div>
     `;
     document.body.appendChild(overlay);
-    overlay.querySelector('#modal-cancel').onclick = () => overlay.remove();
-    if (onConfirm) {
-        overlay.querySelector('#modal-confirm').onclick = () => {
-            onConfirm(overlay);
-            overlay.remove();
+
+    const close = () => {
+        overlay.remove();
+        document.removeEventListener('keydown', onKey);
+        if (_lastFocusedBeforeModal && _lastFocusedBeforeModal.focus) {
+            try { _lastFocusedBeforeModal.focus(); } catch (_) {}
+        }
+    };
+
+    overlay.querySelector('#modal-cancel').onclick = close;
+
+    const confirmBtn = overlay.querySelector('#modal-confirm');
+    if (onConfirm && confirmBtn) {
+        confirmBtn.onclick = async () => {
+            const result = onConfirm(overlay);
+            if (result && typeof result.then === 'function') {
+                setLoading(confirmBtn, true);
+                try { await result; } finally { setLoading(confirmBtn, false); }
+            }
+            close();
         };
     }
-    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+
+    // Focus trap + Escape
+    function onKey(e) {
+        if (e.key === 'Escape') { e.preventDefault(); close(); return; }
+        if (e.key !== 'Tab') return;
+        const focusable = overlay.querySelectorAll(
+            'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        );
+        if (!focusable.length) return;
+        const first = focusable[0];
+        const last  = focusable[focusable.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+            e.preventDefault(); last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+            e.preventDefault(); first.focus();
+        }
+    }
+    document.addEventListener('keydown', onKey);
+
+    // Move focus into modal — first input, otherwise first button
+    requestAnimationFrame(() => {
+        const target = overlay.querySelector('input, select, textarea, button.btn-primary, button');
+        if (target) target.focus();
+    });
+
     return overlay;
 }
