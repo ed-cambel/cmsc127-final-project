@@ -4,9 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OnLine — Queue Management</title>
+    <link rel="icon" href="assets/logo-icon.svg" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,500;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;600&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,500;0,9..40,700;0,9..40,800;1,9..40,400&family=JetBrains+Mono:wght@400;600&display=swap">
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -15,8 +16,12 @@
     <!-- LOGIN -->
     <div id="login-view" class="login-page">
         <div class="login-card">
-            <h1>OnLine</h1>
-            <p class="subtitle" id="auth-subtitle">UPV Smart Queue Management</p>
+            <div class="login-brand" aria-label="OnLine">
+                <img src="assets/logo-icon.svg" alt="" class="login-brand-icon">
+                <img src="assets/logo-wordmark.svg" alt="OnLine" class="login-brand-wordmark">
+            </div>
+            <h1 id="auth-greeting" class="login-greeting">Welcome back</h1>
+            <p class="subtitle" id="auth-subtitle">Sign in to manage your queues.</p>
             <div class="form-group">
                 <label for="login-user">Username</label>
                 <input type="text" id="login-user" name="username" autocomplete="username" placeholder="e.g. admin_reyes">
@@ -30,11 +35,11 @@
                     </button>
                 </div>
             </div>
-            <button class="btn btn-primary btn-block" id="login-btn">Sign In</button>
-            <button class="btn btn-block" id="register-btn" style="margin-top:0.5rem;display:none">Create Account</button>
+            <button class="btn btn-primary btn-block" id="login-btn">Sign in</button>
+            <button class="btn btn-primary btn-block" id="register-btn" style="margin-top:0.5rem;display:none">Create account</button>
             <p id="login-error" class="text-sm mt-1" style="color:var(--danger)" role="alert" aria-live="assertive"></p>
-            <p class="text-sm text-dim mt-1" style="text-align:center">
-                <a href="#" id="toggle-mode" style="color:var(--accent);font-weight:500">Don't have an account? Sign up</a>
+            <p class="login-toggle text-sm text-dim mt-1">
+                <a href="#" id="toggle-mode">Don't have an account? Sign up</a>
             </p>
         </div>
     </div>
@@ -116,9 +121,12 @@
             document.getElementById('toggle-mode').textContent    = isReg
                 ? 'Already have an account? Sign in'
                 : "Don't have an account? Sign up";
+            document.getElementById('auth-greeting').textContent  = isReg
+                ? 'Create your account'
+                : 'Welcome back';
             document.getElementById('auth-subtitle').textContent  = isReg
-                ? 'Create a customer account'
-                : 'UPV Smart Queue Management';
+                ? 'Customer accounts only.'
+                : 'Sign in to manage your queues.';
             document.getElementById('login-error').textContent = '';
             // Update autocomplete hints for password manager UX
             document.getElementById('login-pass').autocomplete = isReg ? 'new-password' : 'current-password';

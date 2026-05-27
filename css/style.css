@@ -2,31 +2,57 @@
 /* Fonts are loaded via <link> in index.html for non-blocking download. */
 
 :root {
-    --bg:         #f4f1ec;
-    --surface:    #ffffff;
-    --border:     #d6d0c4;
-    --text:       #1a1814;
-    --text-dim:   #5a5449;
-    --accent:     #1d6b3f;
-    --accent-fg:  #ffffff;
+    /* Surfaces — warmer paper, white elevated, hairline borders tinted with the warm dark */
+    --bg:           #FBF8F6;
+    --bg-subtle:    #F2EDE7;
+    --surface:      #ffffff;
+    --border:       rgba(26, 24, 20, 0.10);
+    --border-strong:rgba(26, 24, 20, 0.18);
+    --divider:      rgba(26, 24, 20, 0.06);
+
+    /* Text */
+    --text:         #1A1413;
+    --text-dim:     #5E504C;
+    --text-subtle:  #847773;
+
+    /* Action colors — UNCHANGED (per the keep-button-colors rule) */
+    --accent:       #1d6b3f;
+    --accent-fg:    #ffffff;
     --accent-light: #e8f5ee;
-    --danger:     #9a2f2f;
+    --danger:       #9a2f2f;
     --danger-light: #fceaea;
-    --warn:       #8a5910;
-    --warn-light: #fef6e0;
-    --blue:       #1f5694;
-    --blue-light: #ebf2fb;
-    --serving:    #1d6b3f;
-    --waiting:    #8a5910;
-    --served:     #4a443a;
-    --skipped:    #9a2f2f;
-    --cancelled:  #5a5449;
-    --cancelled-bg: #e4e1da;
-    --radius:     6px;
-    --shadow:     0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
-    --font:       'DM Sans', sans-serif;
-    --mono:       'JetBrains Mono', monospace;
-    --tap-min:    44px;
+    --warn:         #8a5910;
+    --warn-light:   #fef6e0;
+    --blue:         #1f5694;
+    --blue-light:   #ebf2fb;
+
+    /* Queue status semantics — unchanged */
+    --serving:      #1d6b3f;
+    --waiting:      #8a5910;
+    --served:       #4a443a;
+    --skipped:      #9a2f2f;
+    --cancelled:    #5a5449;
+    --cancelled-bg: #EEE9E3;
+
+    /* Radii — 10px signature; 14/16 for cards & modals */
+    --radius:       10px;
+    --radius-sm:    8px;
+    --radius-lg:    16px;
+    --radius-pill:  999px;
+
+    /* Elevation — warm-tinted, not pure black */
+    --shadow-xs:    0 1px 2px rgba(26, 24, 20, 0.05);
+    --shadow:       0 2px 6px rgba(26, 24, 20, 0.06), 0 1px 2px rgba(26, 24, 20, 0.04);
+    --shadow-md:    0 6px 18px rgba(26, 24, 20, 0.08), 0 2px 4px rgba(26, 24, 20, 0.05);
+    --shadow-lg:    0 18px 40px rgba(26, 24, 20, 0.14), 0 4px 10px rgba(26, 24, 20, 0.06);
+
+    /* Type */
+    --font:         'DM Sans', sans-serif;
+    --mono:         'JetBrains Mono', monospace;
+    --tap-min:      44px;
+
+    /* Motion */
+    --ease:         cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -192,19 +218,95 @@ body {
     justify-content: center;
     min-height: 100vh;
     background: var(--bg);
-    padding: 1rem;
+    padding: 1.5rem;
+    position: relative;
+    overflow: hidden;
+}
+/* warm radial wash behind the card — subtle depth, no new colors */
+.login-page::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(ellipse 600px 400px at 50% 35%, rgba(29, 107, 63, 0.06), transparent 70%),
+        radial-gradient(ellipse 500px 350px at 50% 80%, rgba(26, 24, 20, 0.04), transparent 70%);
+    pointer-events: none;
 }
 .login-card {
+    position: relative;
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 2.5rem;
+    border-radius: 14px;                       /* card-specific, overrides --radius */
+    padding: 2.5rem 2.5rem 2rem;
     width: 100%;
-    max-width: 380px;
-    box-shadow: var(--shadow);
+    max-width: 400px;
+    box-shadow:
+        0 1px 2px rgba(26, 24, 20, 0.04),
+        0 12px 28px rgba(26, 24, 20, 0.08);    /* warmer / softer than var(--shadow) */
 }
-.login-card h1 { font-size: 1.5rem; margin-bottom: 0.25rem; }
-.login-card .subtitle { color: var(--text-dim); font-size: 0.9rem; margin-bottom: 1.5rem; }
+
+.login-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.625rem;
+    margin-bottom: 1.5rem;
+}
+.login-brand-icon {
+    width: 36px;
+    height: 36px;
+    display: block;
+    border-radius: 8px;        /* matches the icon's native rx so edges stay crisp at any size */
+}
+.login-brand-wordmark {
+    height: 24px;
+    width: auto;
+    display: block;
+}
+
+.login-greeting {
+    font-size: 1.625rem;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    line-height: 1.2;
+    margin: 0 0 0.4rem;
+    color: var(--text);
+}
+.login-card .subtitle {
+    color: var(--text-dim);
+    font-size: 0.92rem;
+    line-height: 1.5;
+    margin: 0 0 1.6rem;
+}
+
+/* tighter form rhythm inside the card */
+.login-card .form-group { margin-bottom: 1rem; }
+.login-card .form-group:last-of-type { margin-bottom: 1.25rem; }
+
+/* "Don't have an account? Sign up" — centered, with a styled link */
+.login-toggle {
+    text-align: center;
+    margin-top: 1.1rem;
+    padding-top: 1.1rem;
+    border-top: 1px solid var(--border);
+}
+.login-toggle a {
+    color: var(--accent);
+    font-weight: 600;
+    text-decoration: none;
+    transition: color 0.15s, opacity 0.15s;
+}
+.login-toggle a:hover { opacity: 0.75; }
+.login-toggle a:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+    border-radius: 3px;
+}
+
+@media (max-width: 480px) {
+    .login-page { padding: 1rem; }
+    .login-card { padding: 2rem 1.5rem 1.5rem; }
+    .login-greeting { font-size: 1.4rem; }
+}
 
 /* ── FORMS ── */
 label {
@@ -337,11 +439,13 @@ input:disabled, select:disabled, textarea:disabled {
 .card {
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: var(--radius);
+    border-radius: var(--radius-lg);
     box-shadow: var(--shadow);
-    padding: 1.25rem;
+    padding: 1.5rem;
     margin-bottom: 1rem;
+    transition: box-shadow 0.18s var(--ease), transform 0.18s var(--ease);
 }
+.card:hover { box-shadow: var(--shadow-md); }
 .card-title {
     font-weight: 700;
     font-size: 1rem;
@@ -450,7 +554,9 @@ tbody td {
 .modal-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0,0,0,0.45);
+    background: rgba(26, 24, 20, 0.50);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -460,14 +566,14 @@ tbody td {
 }
 .modal {
     background: var(--surface);
-    border-radius: var(--radius);
+    border-radius: var(--radius-lg);
     padding: 1.75rem;
     width: 100%;
     max-width: 460px;
-    box-shadow: 0 12px 36px rgba(0,0,0,0.18);
+    box-shadow: var(--shadow-lg);
     max-height: 90vh;
     overflow-y: auto;
-    animation: modalIn 0.22s ease;
+    animation: modalIn 0.22s var(--ease);
 }
 .modal h3 { font-size: 1.15rem; margin-bottom: 1rem; font-weight: 700; }
 .modal-actions {
@@ -499,12 +605,12 @@ tbody td {
     max-width: calc(100vw - 2rem);
 }
 .toast {
-    padding: 0.7rem 1rem;
+    padding: 0.75rem 1rem;
     border-radius: var(--radius);
     font-size: 0.88rem;
     font-weight: 500;
-    box-shadow: 0 4px 14px rgba(0,0,0,0.14);
-    animation: slideIn 0.22s ease;
+    box-shadow: var(--shadow-md);
+    animation: slideIn 0.22s var(--ease);
     cursor: pointer;
 }
 .toast-success { background: var(--accent); color: #fff; }
